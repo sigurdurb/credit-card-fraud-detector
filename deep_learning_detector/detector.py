@@ -56,7 +56,8 @@ def run_hypertuning(X_train: pd.DataFrame, y_train: pd.Series) -> None:
     }
 
     keras_classifier = keras.wrappers.scikit_learn.KerasClassifier(build_model)
-    random_grid_search = RandomizedSearchCV(keras_classifier, params, n_iter=10, cv=3)
+    random_grid_search = RandomizedSearchCV(keras_classifier, params, n_iter=10, cv=3,
+                                            scoring='precision')
     random_grid_search.fit(X_train, y_train, epochs=100, callbacks=[keras.callbacks.EarlyStopping(monitor='loss', patience=10)])
 
     print(random_grid_search.best_params_)
