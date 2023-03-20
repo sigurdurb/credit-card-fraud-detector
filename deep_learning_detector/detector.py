@@ -28,8 +28,9 @@ def add_time_of_day(df: pd.DataFrame):
 
 
 def weighted_mse(y_true, y_pred):
-    weight = tf.map_fn(fn=lambda y: MSE_FRAUD_WEIGHT if y == 1 else MSE_NOT_FRAUD_WEIGHT, elems=y_true)
+    weight = tf.where(tf.equal(y_true, 0), MSE_NOT_FRAUD_WEIGHT, MSE_FRAUD_WEIGHT)
 
+    y_true = tf.cast(y_true, y_pred.dtype)
     return tf.reduce_mean(tf.square(y_true - y_pred) * weight, axis=-1)
 
 
@@ -41,7 +42,7 @@ def build_model(input_layer_size=30, hidden_layer_count=3, hidden_size=80, learn
     output = keras.layers.Dense(1, activation='sigmoid')(x)
 
     detector_model = keras.Model(input, output, name='dl-detector')
-    detector_model.compile(metrics=['precision'], loss=weighted_mse,
+    detector_model.compile(metrics=[keras.metrics.Precision()], loss=weighted_mse,
                            optimizer=keras.optimizers.SGD(learning_rate=learning_rate))
 
     return detector_model
@@ -50,13 +51,13 @@ def build_model(input_layer_size=30, hidden_layer_count=3, hidden_size=80, learn
 def run_hypertuning(X_train: pd.DataFrame, y_train: pd.Series) -> None:
     params = {
         'hidden_layer_count': [1, 2, 3, 4],
-        'hidden_size': [40, 80, 120, 160],
+        'hidden_size': np.arange(40, 160),
         'learning_rate': reciprocal(0.005, 0.06)
     }
 
     keras_classifier = keras.wrappers.scikit_learn.KerasClassifier(build_model)
     random_grid_search = RandomizedSearchCV(keras_classifier, params, n_iter=10, cv=3)
-    random_grid_search.fit(X_train, y_train, epochs=100, callbacks=[keras.callbacks.EarlyStopping(patience=10)])
+    random_grid_search.fit(X_train, y_train, epochs=100, callbacks=[keras.callbacks.EarlyStopping(monitor='loss', patience=10)])
 
     print(random_grid_search.best_params_)
     print(random_grid_search.best_score_)
