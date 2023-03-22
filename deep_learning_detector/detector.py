@@ -3,6 +3,7 @@ import numpy as np
 import tensorflow as tf
 
 from scipy.stats import reciprocal
+from sklearn.metrics import confusion_matrix, make_scorer
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import RandomizedSearchCV
 from tensorflow import keras
@@ -51,9 +52,12 @@ def sensitivity(y_true, y_pred):
     return sensitivity
 
 
-def build_model(input_layer_size=30, hidden_layer_count=3, hidden_size=80, learning_rate=0.05) -> keras.Model:
+def build_model(input_layer_size=30, hidden_layer_count=3, hidden_size=80, learning_rate=0.05, normalize_data=True) -> keras.Model:
     input = keras.Input(shape=(input_layer_size,))
-    x = keras.layers.Normalization()(input)
+    if normalize_data:
+        x = keras.layers.Normalization()(input)
+    else:
+        x = input
     for i in range(hidden_layer_count):
         x = keras.layers.Dense(hidden_size, activation='relu')(x)
     output = keras.layers.Dense(1, activation='sigmoid')(x)
@@ -69,12 +73,15 @@ def run_hypertuning(X_train: pd.DataFrame, y_train: pd.Series) -> None:
     params = {
         'hidden_layer_count': [2, 3, 4, 5, 6],
         'hidden_size': np.arange(40, 160),
-        'learning_rate': reciprocal(0.005, 0.08)
+        'learning_rate': reciprocal(0.005, 0.08),
+        'normalize_data': [True, False]
     }
 
     keras_classifier = keras.wrappers.scikit_learn.KerasClassifier(build_model)
-    random_grid_search = RandomizedSearchCV(keras_classifier, params, n_iter=300, cv=3,
-                                            scoring=['precision', 'specificity', 'sensitivity'])
+    random_grid_search = RandomizedSearchCV(keras_classifier, params, n_iter=300, cv=3, refit='specificity',
+                                            scoring={'precision': keras.metrics.Precision(),
+                                                     'specificity': make_scorer(specificity),
+                                                     'sensitivity': make_scorer(sensitivity)})
     random_grid_search.fit(X_train, y_train, epochs=100, callbacks=[keras.callbacks.EarlyStopping(monitor='loss', patience=10)])
 
     print(random_grid_search.best_params_)
@@ -84,6 +91,15 @@ def run_hypertuning(X_train: pd.DataFrame, y_train: pd.Series) -> None:
         f.write('Hyper-parameter tuning\n')
         f.write(f'{random_grid_search.best_params_}\n')
         f.write(f'{random_grid_search.best_score_}\n')
+
+    y_pred = random_grid_search.predict(X_train)
+    cm = confusion_matrix(y_train, y_pred)
+
+    print(cm)
+
+    with open('hypertuning-results-cm.txt', 'w') as f:
+        f.write('Hyper-parameter confusion matrix\n')
+        f.write(f'{str(cm)}\n')
 
 
 def run_detector() -> None:
