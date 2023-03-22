@@ -34,6 +34,23 @@ def weighted_mse(y_true, y_pred):
     return tf.reduce_mean(tf.square(y_true - y_pred) * weight, axis=-1)
 
 
+def specificity(y_true, y_pred):
+    neg_y_true = 1 - y_true
+    neg_y_pred = 1 - y_pred
+    fp = keras.backend.sum(neg_y_true * y_pred)
+    tn = keras.backend.sum(neg_y_true * neg_y_pred)
+    specificity = tn / (tn + fp + keras.backend.epsilon())
+    return specificity
+
+
+def sensitivity(y_true, y_pred):
+    neg_y_pred = 1 - y_pred
+    tp = keras.backend.sum(y_true * y_pred)
+    fn = keras.backend.sum(y_true * neg_y_pred)
+    sensitivity = tp / (tp + fn + keras.backend.epsilon())
+    return sensitivity
+
+
 def build_model(input_layer_size=30, hidden_layer_count=3, hidden_size=80, learning_rate=0.05) -> keras.Model:
     input = keras.Input(shape=(input_layer_size,))
     x = keras.layers.Normalization()(input)
@@ -42,7 +59,7 @@ def build_model(input_layer_size=30, hidden_layer_count=3, hidden_size=80, learn
     output = keras.layers.Dense(1, activation='sigmoid')(x)
 
     detector_model = keras.Model(input, output, name='dl-detector')
-    detector_model.compile(metrics=[keras.metrics.Precision()], loss=weighted_mse,
+    detector_model.compile(metrics=[keras.metrics.Precision(), specificity, sensitivity], loss=weighted_mse,
                            optimizer=keras.optimizers.SGD(learning_rate=learning_rate))
 
     return detector_model
@@ -50,14 +67,14 @@ def build_model(input_layer_size=30, hidden_layer_count=3, hidden_size=80, learn
 
 def run_hypertuning(X_train: pd.DataFrame, y_train: pd.Series) -> None:
     params = {
-        'hidden_layer_count': [1, 2, 3, 4],
+        'hidden_layer_count': [2, 3, 4, 5, 6],
         'hidden_size': np.arange(40, 160),
-        'learning_rate': reciprocal(0.005, 0.06)
+        'learning_rate': reciprocal(0.005, 0.08)
     }
 
     keras_classifier = keras.wrappers.scikit_learn.KerasClassifier(build_model)
-    random_grid_search = RandomizedSearchCV(keras_classifier, params, n_iter=10, cv=3,
-                                            scoring='precision')
+    random_grid_search = RandomizedSearchCV(keras_classifier, params, n_iter=300, cv=3,
+                                            scoring=['precision', 'specificity', 'sensitivity'])
     random_grid_search.fit(X_train, y_train, epochs=100, callbacks=[keras.callbacks.EarlyStopping(monitor='loss', patience=10)])
 
     print(random_grid_search.best_params_)
