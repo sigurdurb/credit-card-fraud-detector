@@ -4,12 +4,13 @@ import tensorflow as tf
 
 from scipy.stats import reciprocal
 from sklearn.metrics import confusion_matrix, make_scorer
-from sklearn.model_selection import train_test_split
-from sklearn.model_selection import RandomizedSearchCV
+from sklearn.model_selection import train_test_split, GridSearchCV
 from tensorflow import keras
+from f1_score import F1Score
+from scikeras.wrappers import KerasClassifier
 
 MSE_FRAUD_WEIGHT = 1.0
-MSE_NOT_FRAUD_WEIGHT = 0.01
+MSE_NOT_FRAUD_WEIGHT = 0.001
 
 
 def load_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
@@ -52,7 +53,7 @@ def sensitivity(y_true, y_pred):
     return sensitivity
 
 
-def build_model(input_layer_size=30, hidden_layer_count=3, hidden_size=80, learning_rate=0.05, normalize_data=True) -> keras.Model:
+def build_model(input_layer_size=30, hidden_layer_count=3, hidden_size=80, learning_rate=0.05, normalize_data=False) -> keras.Model:
     input = keras.Input(shape=(input_layer_size,))
     if normalize_data:
         x = keras.layers.Normalization()(input)
@@ -63,7 +64,7 @@ def build_model(input_layer_size=30, hidden_layer_count=3, hidden_size=80, learn
     output = keras.layers.Dense(1, activation='sigmoid')(x)
 
     detector_model = keras.Model(input, output, name='dl-detector')
-    detector_model.compile(metrics=[keras.metrics.Precision(), specificity, sensitivity], loss=weighted_mse,
+    detector_model.compile(metrics=[keras.metrics.Precision(), keras.metrics.Recall()], loss=weighted_mse,
                            optimizer=keras.optimizers.SGD(learning_rate=learning_rate))
 
     return detector_model
@@ -71,17 +72,14 @@ def build_model(input_layer_size=30, hidden_layer_count=3, hidden_size=80, learn
 
 def run_hypertuning(X_train: pd.DataFrame, y_train: pd.Series) -> None:
     params = {
-        'hidden_layer_count': [2, 3, 4, 5, 6],
-        'hidden_size': np.arange(40, 160),
-        'learning_rate': reciprocal(0.005, 0.08),
-        'normalize_data': [True, False]
+        'hidden_layer_count': [3, 4, 5],
+        'hidden_size': [40, 80, 120],
+        'learning_rate': [0.01, 0.05, 0.08],
     }
 
     keras_classifier = keras.wrappers.scikit_learn.KerasClassifier(build_model)
-    random_grid_search = RandomizedSearchCV(keras_classifier, params, n_iter=300, cv=3, refit='specificity',
-                                            scoring={'precision': keras.metrics.Precision(),
-                                                     'specificity': make_scorer(specificity),
-                                                     'sensitivity': make_scorer(sensitivity)})
+    random_grid_search = GridSearchCV(keras_classifier, params, cv=3, refit='precision',
+                                            scoring=['precision', 'recall'])
     random_grid_search.fit(X_train, y_train, epochs=100, callbacks=[keras.callbacks.EarlyStopping(monitor='loss', patience=10)])
 
     print(random_grid_search.best_params_)
