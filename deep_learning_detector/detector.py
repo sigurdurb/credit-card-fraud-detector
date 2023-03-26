@@ -1,60 +1,43 @@
+import sys
+sys.path.append('../')
+
 import pandas as pd
 import numpy as np
 import tensorflow as tf
+import matplotlib
+matplotlib.use('TkAgg')
 
 from scipy.stats import reciprocal
-from sklearn.metrics import confusion_matrix, make_scorer
+from sklearn.metrics import confusion_matrix, make_scorer, ConfusionMatrixDisplay, accuracy_score, recall_score, precision_score, f1_score
 from sklearn.model_selection import train_test_split, GridSearchCV
 from tensorflow import keras
 from f1_score import F1Score
+from matplotlib import pyplot as plt
+from load_data import load_data
 from scikeras.wrappers import KerasClassifier
 
 MSE_FRAUD_WEIGHT = 1.0
-MSE_NOT_FRAUD_WEIGHT = 0.001
+MSE_NOT_FRAUD_WEIGHT = 0.05
 
 
-def load_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
-    credidcard_fraud_df = pd.read_csv('../creditcardfraud/creditcard.csv')
-
-    y = credidcard_fraud_df['Class']
-    X = credidcard_fraud_df
-    X.pop('Class')
-
-    X_train, X_validate, y_train, y_validate = train_test_split(X, y, train_size=0.8, test_size=0.2, shuffle=True,
-                                                                random_state=37, stratify=y)
-    return X_train, X_validate, y_train, y_validate
+def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
+    return df[['V2', 'V3', 'V4', 'V6', 'V7', 'V9', 'V10', 'V11', 'V12', 'V14', 'V16', 'V17', 'V18', 'V19', 'V26', 'V27']]
 
 
-def add_time_of_day(df: pd.DataFrame):
-    df["Time-Minute"] = df["Time"] // 60 % (24 * 60)
+def create_weighted_mse(fraud_weight=1.0, not_fraud_weight=0.05) -> callable:
+    def weighted_mse(y_true, y_pred):
+        weight = tf.where(tf.equal(y_true, 0), not_fraud_weight, fraud_weight)
+
+        y_true = tf.cast(y_true, y_pred.dtype)
+        weight = tf.cast(weight, y_pred.dtype)
+        return tf.reduce_mean(tf.square(y_true - y_pred) * weight, axis=-1)
+
+    return weighted_mse
 
 
-def weighted_mse(y_true, y_pred):
-    weight = tf.where(tf.equal(y_true, 0), MSE_NOT_FRAUD_WEIGHT, MSE_FRAUD_WEIGHT)
-
-    y_true = tf.cast(y_true, y_pred.dtype)
-    return tf.reduce_mean(tf.square(y_true - y_pred) * weight, axis=-1)
-
-
-def specificity(y_true, y_pred):
-    neg_y_true = 1 - y_true
-    neg_y_pred = 1 - y_pred
-    fp = keras.backend.sum(neg_y_true * y_pred)
-    tn = keras.backend.sum(neg_y_true * neg_y_pred)
-    specificity = tn / (tn + fp + keras.backend.epsilon())
-    return specificity
-
-
-def sensitivity(y_true, y_pred):
-    neg_y_pred = 1 - y_pred
-    tp = keras.backend.sum(y_true * y_pred)
-    fn = keras.backend.sum(y_true * neg_y_pred)
-    sensitivity = tp / (tp + fn + keras.backend.epsilon())
-    return sensitivity
-
-
-def build_model(input_layer_size=30, hidden_layer_count=3, hidden_size=80, learning_rate=0.05, normalize_data=False) -> keras.Model:
-    input = keras.Input(shape=(input_layer_size,))
+def build_model(input_layer_size=30, hidden_layer_count=5, hidden_size=80, learning_rate=0.05, normalize_data=False,
+                not_fraud_mse_weight=0.05) -> keras.Model:
+    input = keras.Input(shape=(input_layer_size,), batch_size=100)
     if normalize_data:
         x = keras.layers.Normalization()(input)
     else:
@@ -64,7 +47,7 @@ def build_model(input_layer_size=30, hidden_layer_count=3, hidden_size=80, learn
     output = keras.layers.Dense(1, activation='sigmoid')(x)
 
     detector_model = keras.Model(input, output, name='dl-detector')
-    detector_model.compile(metrics=[keras.metrics.Precision(), keras.metrics.Recall()], loss=weighted_mse,
+    detector_model.compile(metrics=[keras.metrics.Precision(), keras.metrics.Recall()], loss=create_weighted_mse(not_fraud_weight=not_fraud_mse_weight),
                            optimizer=keras.optimizers.SGD(learning_rate=learning_rate))
 
     return detector_model
@@ -72,6 +55,7 @@ def build_model(input_layer_size=30, hidden_layer_count=3, hidden_size=80, learn
 
 def run_hypertuning(X_train: pd.DataFrame, y_train: pd.Series) -> None:
     params = {
+        # 'not_fraud_mse_weight': np.arange(0.001, 0.1, 0.001),
         'hidden_layer_count': [3, 4, 5],
         'hidden_size': [40, 80, 120],
         'learning_rate': [0.01, 0.05, 0.08],
@@ -100,15 +84,26 @@ def run_hypertuning(X_train: pd.DataFrame, y_train: pd.Series) -> None:
         f.write(f'{str(cm)}\n')
 
 
-def run_detector() -> None:
-    X_train, _, y_train, _ = load_data()
+def train_model(X_train: pd.DataFrame, y_train: pd.Series, save_as: str | None = None) -> keras.wrappers.scikit_learn.KerasClassifier:
+    classifier = keras.wrappers.scikit_learn.KerasClassifier(build_model,
+                                                             input_layer_size=len(X_train.columns),
+                                                             hidden_layer_count=6,
+                                                             hidden_size=160,
+                                                             learning_rate=0.05,
+                                                             not_fraud_mse_weight=0.018,
+                                                             normalize_data=False)
+    classifier.fit(X_train, y_train, callbacks=[keras.callbacks.EarlyStopping(monitor='loss', patience=10)])
 
-    add_time_of_day(X_train)
-    X_train.pop('Time')
+    if save_as is not None:
+        classifier.model.save(save_as)
 
-    run_hypertuning(X_train, y_train)
-    # detector_model = build_model(len(X_train.columns), 3, 80, 0.05)
+    return classifier
 
 
-if __name__ == '__main__':
-    run_detector()
+def load_model(path: str) -> keras.wrappers.scikit_learn.KerasClassifier:
+    model = keras.models.load_model(path, custom_objects={'weighted_mse': create_weighted_mse(not_fraud_weight=0.018)})
+
+    classifier = KerasClassifier()
+    classifier.model = model
+
+    return classifier
