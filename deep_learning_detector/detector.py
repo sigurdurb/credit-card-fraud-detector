@@ -1,4 +1,5 @@
 import sys
+
 sys.path.append('../')
 
 import pandas as pd
@@ -9,11 +10,12 @@ from sklearn.model_selection import GridSearchCV
 from tensorflow import keras
 
 MSE_FRAUD_WEIGHT = 1.0
-MSE_NOT_FRAUD_WEIGHT = 0.05
+MSE_NOT_FRAUD_WEIGHT = 0.018
 
 
 def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
-    return df[['V2', 'V3', 'V4', 'V6', 'V7', 'V9', 'V10', 'V11', 'V12', 'V14', 'V16', 'V17', 'V18', 'V19', 'V26', 'V27']]
+    return df[
+        ['V2', 'V3', 'V4', 'V6', 'V7', 'V9', 'V10', 'V11', 'V12', 'V14', 'V16', 'V17', 'V18', 'V19', 'V26', 'V27']]
 
 
 def create_weighted_mse(fraud_weight=1.0, not_fraud_weight=0.05) -> callable:
@@ -39,7 +41,8 @@ def build_model(input_layer_size=30, hidden_layer_count=5, hidden_size=80, learn
     output = keras.layers.Dense(1, activation='sigmoid')(x)
 
     detector_model = keras.Model(input, output, name='dl-detector')
-    detector_model.compile(metrics=[keras.metrics.Precision(), keras.metrics.Recall()], loss=create_weighted_mse(not_fraud_weight=not_fraud_mse_weight),
+    detector_model.compile(metrics=[keras.metrics.Precision(), keras.metrics.Recall()],
+                           loss=create_weighted_mse(not_fraud_weight=not_fraud_mse_weight),
                            optimizer=keras.optimizers.SGD(learning_rate=learning_rate))
 
     return detector_model
@@ -55,8 +58,9 @@ def run_hypertuning(X_train: pd.DataFrame, y_train: pd.Series) -> None:
 
     keras_classifier = keras.wrappers.scikit_learn.KerasClassifier(build_model)
     random_grid_search = GridSearchCV(keras_classifier, params, cv=3, refit='precision',
-                                            scoring=['precision', 'recall'])
-    random_grid_search.fit(X_train, y_train, epochs=100, callbacks=[keras.callbacks.EarlyStopping(monitor='loss', patience=10)])
+                                      scoring=['precision', 'recall'])
+    random_grid_search.fit(X_train, y_train, epochs=100,
+                           callbacks=[keras.callbacks.EarlyStopping(monitor='loss', patience=10)])
 
     print(random_grid_search.best_params_)
     print(random_grid_search.best_score_)
@@ -76,13 +80,14 @@ def run_hypertuning(X_train: pd.DataFrame, y_train: pd.Series) -> None:
         f.write(f'{str(cm)}\n')
 
 
-def train_model(X_train: pd.DataFrame, y_train: pd.Series, save_as: str | None = None) -> keras.wrappers.scikit_learn.KerasClassifier:
+def train_model(X_train: pd.DataFrame, y_train: pd.Series,
+                save_as: str | None = None) -> keras.wrappers.scikit_learn.KerasClassifier:
     classifier = keras.wrappers.scikit_learn.KerasClassifier(build_model,
                                                              input_layer_size=len(X_train.columns),
                                                              hidden_layer_count=6,
                                                              hidden_size=160,
                                                              learning_rate=0.05,
-                                                             not_fraud_mse_weight=0.018,
+                                                             not_fraud_mse_weight=MSE_NOT_FRAUD_WEIGHT,
                                                              normalize_data=False)
     classifier.fit(X_train, y_train, callbacks=[keras.callbacks.EarlyStopping(monitor='loss', patience=10)])
 
@@ -93,7 +98,8 @@ def train_model(X_train: pd.DataFrame, y_train: pd.Series, save_as: str | None =
 
 
 def load_model(path: str) -> keras.wrappers.scikit_learn.KerasClassifier:
-    model = keras.models.load_model(path, custom_objects={'weighted_mse': create_weighted_mse(not_fraud_weight=0.018)})
+    model = keras.models.load_model(path, custom_objects={
+        'weighted_mse': create_weighted_mse(not_fraud_weight=MSE_NOT_FRAUD_WEIGHT)})
 
     return model
 
