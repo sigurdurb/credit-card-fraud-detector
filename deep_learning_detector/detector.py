@@ -103,7 +103,9 @@ def train_model(X_train: pd.DataFrame, y_train: pd.Series, save_as: str | None =
 def load_model(path: str) -> keras.wrappers.scikit_learn.KerasClassifier:
     model = keras.models.load_model(path, custom_objects={'weighted_mse': create_weighted_mse(not_fraud_weight=0.018)})
 
-    classifier = KerasClassifier()
-    classifier.model = model
+    return model
 
-    return classifier
+
+def predict(transactions: pd.DataFrame) -> pd.Series:
+    model = load_model('best_model.h5')
+    return model.predict(preprocess_data(transactions))
