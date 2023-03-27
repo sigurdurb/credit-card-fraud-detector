@@ -2,12 +2,10 @@ import sys
 sys.path.append('../')
 
 import pandas as pd
-import numpy as np
 import tensorflow as tf
 import matplotlib
 matplotlib.use('TkAgg')
 
-from scipy.stats import reciprocal
 from sklearn.metrics import confusion_matrix, make_scorer, ConfusionMatrixDisplay, accuracy_score, recall_score, precision_score, f1_score
 from sklearn.model_selection import train_test_split, GridSearchCV
 from tensorflow import keras
@@ -108,4 +106,4 @@ def load_model(path: str) -> keras.wrappers.scikit_learn.KerasClassifier:
 
 def predict(transactions: pd.DataFrame) -> pd.Series:
     model = load_model('best_model.h5')
-    return model.predict(preprocess_data(transactions))
+    return (model.predict(preprocess_data(transactions)) > 0.5).astype("int32")
