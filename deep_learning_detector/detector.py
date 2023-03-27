@@ -3,16 +3,10 @@ sys.path.append('../')
 
 import pandas as pd
 import tensorflow as tf
-import matplotlib
-matplotlib.use('TkAgg')
 
-from sklearn.metrics import confusion_matrix, make_scorer, ConfusionMatrixDisplay, accuracy_score, recall_score, precision_score, f1_score
-from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.metrics import confusion_matrix
+from sklearn.model_selection import GridSearchCV
 from tensorflow import keras
-from f1_score import F1Score
-from matplotlib import pyplot as plt
-from load_data import load_data
-from scikeras.wrappers import KerasClassifier
 
 MSE_FRAUD_WEIGHT = 1.0
 MSE_NOT_FRAUD_WEIGHT = 0.05
