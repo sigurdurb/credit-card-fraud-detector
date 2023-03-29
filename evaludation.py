@@ -10,7 +10,7 @@ from tabulate import tabulate
 
 from random_forest_detector.random_forest_detector import predict as rf_predict
 from deep_learning_detector.detector import predict as dnn_predict 
-from nb_detector_tmp import predict as nb_predict # TODO Update
+from naive_bayes_detector.nb_detector import predict as nb_predict
 
 
 def get_stats_of_results(y_gt, y_pred):
