@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import pandas as pd
 import seaborn as sns
 from load_data import load_data
 import numpy as np
@@ -53,6 +54,27 @@ def baggings(y0,y1,y2):
     
     return y3, y4, y5
 
+
+def calculate_revenue(X: pd.DataFrame, y_true: pd.Series, y_pred: np.ndarray) -> float:
+    def map_to_revenue(row) -> float:
+        match row.tolist():
+            # Not fraud and not classified as fraud
+            case [0, 0, amount]:
+                return amount
+            # Not fraud but misclassified as fraud
+            case [0, 1, _]:
+                return 0
+            # Fraud but misclassified as not fraud
+            case [1, 0, amount]:
+                return -amount
+            # Fraud that is correctly classified as fraud
+            case [1, 1, _]:
+                return 0
+
+    data = np.dstack((y_true.to_numpy(), y_pred, X['Amount'].to_numpy()))
+    return np.apply_along_axis(map_to_revenue, 2, data).sum()
+
+
 def main():
     
     # Load data 
@@ -84,6 +106,18 @@ def main():
                     ["Bagging RF"]+list(y5_stat)], 
                     headers=["Detectors Name"]+stats_name, 
                     tablefmt="grid"))
+
+    # Print revenue
+    print(f'{calculate_revenue(X_eval, y_eval, y_pred_dnn):f}')
+    print(tabulate([["Deep Neural Network", f'€ {calculate_revenue(X_eval, y_eval, y_pred_dnn)}'],
+                    ["Random Forest", f'€ {calculate_revenue(X_eval, y_eval, y_pred_rf)}'],
+                    ["Naive Bayes", f'€ {calculate_revenue(X_eval, y_eval, y_pred_nb)}'],
+                    ["Bagging All", f'€ {calculate_revenue(X_eval, y_eval, y3)}'],
+                    ["Bagging Major", f'€ {calculate_revenue(X_eval, y_eval, y4)}'],
+                    ["Bagging RF", f'€ {calculate_revenue(X_eval, y_eval, y5)}']],
+                   headers=["Detectors Name", "Revenue"],
+                   tablefmt="grid",
+                   floatfmt=".2f"))
 
     # print confusion matiices
     for y_pred in [y_pred_dnn, y_pred_rf, y_pred_nb, y3, y4, y5]:
