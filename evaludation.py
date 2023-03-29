@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
 import pandas as pd
-import seaborn as sns
 from load_data import load_data
 import numpy as np
 from sklearn.metrics import accuracy_score,precision_score,recall_score,f1_score,matthews_corrcoef, cohen_kappa_score, auc
@@ -108,12 +107,12 @@ def main():
                     tablefmt="grid"))
 
     # Print revenue
-    print(tabulate([["Deep Neural Network", f'€ {calculate_revenue(X_eval, y_eval, y_pred_dnn)}'],
-                    ["Random Forest", f'€ {calculate_revenue(X_eval, y_eval, y_pred_rf)}'],
-                    ["Naive Bayes", f'€ {calculate_revenue(X_eval, y_eval, y_pred_nb)}'],
-                    ["Bagging All", f'€ {calculate_revenue(X_eval, y_eval, y3)}'],
-                    ["Bagging Major", f'€ {calculate_revenue(X_eval, y_eval, y4)}'],
-                    ["Bagging RF", f'€ {calculate_revenue(X_eval, y_eval, y5)}']],
+    print(tabulate([["Deep Neural Network", f'{calculate_revenue(X_eval, y_eval, y_pred_dnn)}'],
+                    ["Random Forest", f'{calculate_revenue(X_eval, y_eval, y_pred_rf)}'],
+                    ["Naive Bayes", f'{calculate_revenue(X_eval, y_eval, y_pred_nb)}'],
+                    ["Bagging All", f'{calculate_revenue(X_eval, y_eval, y3)}'],
+                    ["Bagging Major", f'{calculate_revenue(X_eval, y_eval, y4)}'],
+                    ["Bagging RF", f'{calculate_revenue(X_eval, y_eval, y5)}']],
                    headers=["Detectors Name", "Revenue"],
                    tablefmt="grid",
                    floatfmt=".2f"))
