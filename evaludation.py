@@ -108,7 +108,6 @@ def main():
                     tablefmt="grid"))
 
     # Print revenue
-    print(f'{calculate_revenue(X_eval, y_eval, y_pred_dnn):f}')
     print(tabulate([["Deep Neural Network", f'€ {calculate_revenue(X_eval, y_eval, y_pred_dnn)}'],
                     ["Random Forest", f'€ {calculate_revenue(X_eval, y_eval, y_pred_rf)}'],
                     ["Naive Bayes", f'€ {calculate_revenue(X_eval, y_eval, y_pred_nb)}'],
