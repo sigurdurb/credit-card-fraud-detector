@@ -114,7 +114,7 @@ This Project was developed by **the Fraud Prevention Force**
 </div>  
 
 - Eva Ósk [EfaOSk](https://github.com/EfaOsk)
-- Guðmundure Óli
+- Guðmundur Óli
 - Sigurður
 
 Project Link: [https://github.com/sigurdurb/credit-card-fraud-detector](https://github.com/sigurdurb/credit-card-fraud-detector)
