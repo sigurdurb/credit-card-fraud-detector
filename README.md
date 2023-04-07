@@ -98,7 +98,7 @@ To get a local copy up and running follow these simple example steps.
    ```
 4. Playaround as you wish
    ```sh
-   python evaludate.py;
+   python evaludate.py
    ```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -114,8 +114,8 @@ This Project was developed by **the Fraud Prevention Force**
 </div>  
 
 - Eva Ósk [EfaOSk](https://github.com/EfaOsk)
-- Guðmundur Óli
-- Sigurður
+- Guðmundur Óli [gudmunduro](https://github.com/gudmunduro)
+- Sigurður [sigurdurb](https://github.com/sigurdurb)
 
 Project Link: [https://github.com/sigurdurb/credit-card-fraud-detector](https://github.com/sigurdurb/credit-card-fraud-detector)
 
