@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from load_data import load_data
 import numpy as np
-from sklearn.metrics import accuracy_score,precision_score,recall_score,f1_score,matthews_corrcoef, cohen_kappa_score, auc
+from sklearn.metrics import accuracy_score,precision_score,recall_score,f1_score,matthews_corrcoef, cohen_kappa_score, roc_auc_score
 from sklearn.metrics import confusion_matrix
 
 # ! pip install tabulate
@@ -26,7 +26,7 @@ def get_stats_of_results(y_gt, y_pred):
     - Cohen's kappa
     '''
     acc= accuracy_score(y_gt, y_pred)
-    auc= accuracy_score(y_gt, y_pred)
+    auc= roc_auc_score(y_gt, y_pred)
     prec= precision_score(y_gt, y_pred)
     recall= recall_score(y_gt, y_pred)
     f1= f1_score(y_gt, y_pred)
@@ -56,19 +56,19 @@ def baggings(y0,y1,y2):
 
 def calculate_revenue(X: pd.DataFrame, y_true: pd.Series, y_pred: np.ndarray) -> float:
     def map_to_revenue(row) -> float:
-        match row.tolist():
-            # Not fraud and not classified as fraud
-            case [0, 0, amount]:
-                return amount
-            # Not fraud but misclassified as fraud
-            case [0, 1, _]:
-                return 0
-            # Fraud but misclassified as not fraud
-            case [1, 0, amount]:
-                return -amount
-            # Fraud that is correctly classified as fraud
-            case [1, 1, _]:
-                return 0
+        gt, pre, amount = row.tolist()
+        # Not fraud and not classified as fraud
+        if [gt, pre] == [0, 0]:
+            return amount
+         # Not fraud but misclassified as fraud
+        elif [gt, pre] == [0, 1]:
+            return 0
+        # Fraud but misclassified as not fraud
+        elif [gt, pre] == [1, 0]:
+            return -amount
+        # Fraud that is correctly classified as fraud
+        elif [gt, pre] == [1, 1]:
+            return 0
 
     data = np.dstack((y_true.to_numpy(), y_pred, X['Amount'].to_numpy()))
     return np.apply_along_axis(map_to_revenue, 2, data).sum()
@@ -97,7 +97,7 @@ def main():
     y3_stat, y4_stat, y5_stat = get_stats_of_results(y_eval, y3), get_stats_of_results(y_eval, y4), get_stats_of_results(y_eval, y5)
     
     # Print performance stats
-    print(tabulate([["Deep Nural Network"]+list(dnn_stat), 
+    print(tabulate([["Deep Neural Network"]+list(dnn_stat), 
                     ["Random Forest"]+list(rf_stat), 
                     ["Naive Bayes"]+list(nb_stat),
                     ["Bagging All"]+list(y3_stat),
