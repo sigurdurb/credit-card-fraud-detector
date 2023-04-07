@@ -11,7 +11,7 @@ def preprocess(transactions):
 
 def predict(transactions):
     # load model
-    with open('nb_model_v2', 'rb') as f:
+    with open('naive_bayes_detector/nb_model_v2', 'rb') as f:
         nb = pickle.load(f)
 
     y_pred= nb.predict(preprocess(transactions))
