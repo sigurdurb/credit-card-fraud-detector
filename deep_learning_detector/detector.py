@@ -105,5 +105,5 @@ def load_model(path: str) -> keras.wrappers.scikit_learn.KerasClassifier:
 
 
 def predict(transactions: pd.DataFrame) -> pd.Series:
-    model = load_model('best_model.h5')
+    model = load_model('deep_learning_detector/dl_detector.h5')
     return ((model.predict(preprocess_data(transactions)) > 0.5).astype("int32")).flatten()
